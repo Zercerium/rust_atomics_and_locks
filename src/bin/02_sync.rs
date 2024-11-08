@@ -30,5 +30,5 @@ fn main() {
 }
 
 fn process_item(i: usize) {
-    thread::sleep(Duration::from_millis(17));
+    thread::sleep(Duration::from_millis(i as u64));
 }
