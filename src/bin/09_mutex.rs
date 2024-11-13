@@ -29,9 +29,7 @@ impl<T> Mutex<T> {
 
     pub fn lock(&self) -> MutexGuard<T> {
         if self.state.compare_exchange(0, 1, Acquire, Relaxed).is_err() {
-            while self.state.swap(2, Acquire) != 0 {
-                lock_contended(&self.state);
-            }
+            lock_contended(&self.state);
         }
         MutexGuard { mutex: self }
     }
@@ -77,30 +75,50 @@ impl<T> Deref for MutexGuard<'_, T> {
 }
 
 impl<T> DerefMut for MutexGuard<'_, T> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
+    fn deref_mut(&mut self) -> &mut T {
         unsafe { &mut *self.mutex.value.get() }
     }
 }
 
 fn main() {
+    // let m = Mutex::new(0);
+    // std::hint::black_box(&m);
+    // let start = Instant::now();
+    // for _ in 0..5_000_000 {
+    //     *m.lock() += 1;
+    //
+    // let duration = start.elapsed();
+    // println!("locked {} times in {:?}", *m.lock(), duration);
+
     let m = Mutex::new(0);
     std::hint::black_box(&m);
     let start = Instant::now();
-    for _ in 0..5_000_000 {
-        *m.lock() += 1;
-    }
+    thread::scope(|s| {
+        let m = &m;
+        for _ in 0..20 {
+            s.spawn(move || {
+                for _ in 0..100_000 {
+                    *m.lock() += 1;
+                }
+            });
+        }
+    });
     let duration = start.elapsed();
     println!("locked {} times in {:?}", *m.lock(), duration);
+}
 
+#[test]
+fn main2() {
+    use std::thread;
+    use std::time::Instant;
     let m = Mutex::new(0);
     std::hint::black_box(&m);
     let start = Instant::now();
     thread::scope(|s| {
         for _ in 0..4 {
             s.spawn(|| {
-                for i in 0..5_000_000 {
+                for _ in 0..5_000_000 {
                     *m.lock() += 1;
-                    println!("{i}")
                 }
             });
         }
